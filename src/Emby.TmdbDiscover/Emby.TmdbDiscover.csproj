@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>Emby.TmdbDiscover</AssemblyName>
+    <RootNamespace>Emby.TmdbDiscover</RootNamespace>
+    <LangVersion>8.0</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediaBrowser.Server.Core" Version="4.9.1.90" />
+    <PackageReference Include="System.Memory" Version="4.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\not-in-library.mp4" Condition="Exists('Resources\not-in-library.mp4')" />
+  </ItemGroup>
+
+</Project>
