@@ -11,11 +11,19 @@ namespace Emby.TmdbDiscover.Tmdb
             int desiredCount,
             string window,
             string language,
+            string region,
             CancellationToken cancellationToken);
 
         Task<IReadOnlyList<TmdbTvListItem>> GetTrendingSeriesAsync(
             int desiredCount,
             string window,
+            string language,
+            string region,
+            CancellationToken cancellationToken);
+
+        Task<string> GetTrailerYouTubeKeyAsync(
+            string mediaType,
+            int tmdbId,
             string language,
             CancellationToken cancellationToken);
     }

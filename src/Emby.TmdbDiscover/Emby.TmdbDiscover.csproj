@@ -5,7 +5,16 @@
     <AssemblyName>Emby.TmdbDiscover</AssemblyName>
     <RootNamespace>Emby.TmdbDiscover</RootNamespace>
     <LangVersion>8.0</LangVersion>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <!-- Emby reads the assembly version to show the installed version and to
+         decide whether a catalog release is an update, so this must be real and
+         must be bumped on every release. It also keys the configuration page's
+         cache-busting slug (see DiscoverConfigPage.Name). -->
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Product>Discover for Emby</Product>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +24,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\not-in-library.mp4" Condition="Exists('Resources\not-in-library.mp4')" />
+    <EmbeddedResource Include="Channels\Images\channel-icon.png" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Emby.TmdbDiscover.Tmdb.Models;
@@ -30,7 +29,7 @@ namespace Emby.TmdbDiscover.Tmdb
         }
 
         public async Task<IReadOnlyList<TmdbMovieListItem>> GetTrendingMoviesAsync(
-            int desiredCount, string window, string language, CancellationToken cancellationToken)
+            int desiredCount, string window, string language, string region, CancellationToken cancellationToken)
         {
             var pages = (int)Math.Ceiling(desiredCount / 20d);
             var output = new List<TmdbMovieListItem>();
@@ -38,29 +37,29 @@ namespace Emby.TmdbDiscover.Tmdb
 
             for (var page = 1; page <= pages; page++)
             {
-                var url = TmdbUrls.TrendingMovies(window, page, language, _getApiKey());
+                var url = TmdbUrls.TrendingMovies(window, page, language, _getApiKey(), region);
                 var response = await FetchPage<TmdbMovieListItem>(url, cancellationToken).ConfigureAwait(false);
-                if (response?.Results == null) break;
+                if (response?.results == null) break;
 
                 _logger.Debug("Discover: fetched movie page {0}/{1}, {2} results",
-                    page, pages, response.Results.Count);
+                    page, pages, response.results.Count);
 
-                foreach (var item in response.Results)
+                foreach (var item in response.results)
                 {
-                    if (item.Adult) continue;
-                    if (!seen.Add(item.Id)) continue;
+                    if (item.adult) continue;
+                    if (!seen.Add(item.id)) continue;
                     output.Add(item);
                     if (output.Count >= desiredCount) return output;
                 }
 
-                if (page >= response.TotalPages) break;
+                if (response.total_pages > 0 && page >= response.total_pages) break;
             }
 
             return output;
         }
 
         public async Task<IReadOnlyList<TmdbTvListItem>> GetTrendingSeriesAsync(
-            int desiredCount, string window, string language, CancellationToken cancellationToken)
+            int desiredCount, string window, string language, string region, CancellationToken cancellationToken)
         {
             var pages = (int)Math.Ceiling(desiredCount / 20d);
             var output = new List<TmdbTvListItem>();
@@ -68,25 +67,68 @@ namespace Emby.TmdbDiscover.Tmdb
 
             for (var page = 1; page <= pages; page++)
             {
-                var url = TmdbUrls.TrendingSeries(window, page, language, _getApiKey());
+                var url = TmdbUrls.TrendingSeries(window, page, language, _getApiKey(), region);
                 var response = await FetchPage<TmdbTvListItem>(url, cancellationToken).ConfigureAwait(false);
-                if (response?.Results == null) break;
+                if (response?.results == null) break;
 
                 _logger.Debug("Discover: fetched series page {0}/{1}, {2} results",
-                    page, pages, response.Results.Count);
+                    page, pages, response.results.Count);
 
-                foreach (var item in response.Results)
+                foreach (var item in response.results)
                 {
-                    if (item.Adult) continue;
-                    if (!seen.Add(item.Id)) continue;
+                    if (item.adult) continue;
+                    if (!seen.Add(item.id)) continue;
                     output.Add(item);
                     if (output.Count >= desiredCount) return output;
                 }
 
-                if (page >= response.TotalPages) break;
+                if (response.total_pages > 0 && page >= response.total_pages) break;
             }
 
             return output;
+        }
+
+        public async Task<string> GetTrailerYouTubeKeyAsync(
+            string mediaType, int tmdbId, string language, CancellationToken cancellationToken)
+        {
+            var url = TmdbUrls.Videos(mediaType, tmdbId, language, _getApiKey());
+
+            try
+            {
+                var options = new HttpRequestOptions
+                {
+                    Url = url,
+                    CancellationToken = cancellationToken,
+                    TimeoutMs = 10000
+                };
+
+                using (var response = await _httpClient.GetResponse(options).ConfigureAwait(false))
+                {
+                    if (response.StatusCode != System.Net.HttpStatusCode.OK) return null;
+
+                    var result = _json.DeserializeFromStream<TmdbVideosResponse>(response.Content);
+                    if (result?.results == null) return null;
+
+                    foreach (var v in result.results)
+                    {
+                        if (v.site == "YouTube" && v.type == "Trailer" && !string.IsNullOrEmpty(v.key))
+                            return v.key;
+                    }
+
+                    foreach (var v in result.results)
+                    {
+                        if (v.site == "YouTube" && !string.IsNullOrEmpty(v.key))
+                            return v.key;
+                    }
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.Debug("Discover: failed to fetch trailer for {0}/{1}: {2}", mediaType, tmdbId, ex.Message);
+            }
+
+            return null;
         }
 
         private async Task<TmdbPagedResponse<T>> FetchPage<T>(string url, CancellationToken cancellationToken)

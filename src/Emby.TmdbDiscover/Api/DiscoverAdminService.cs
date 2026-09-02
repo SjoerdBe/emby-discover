@@ -2,11 +2,11 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Emby.TmdbDiscover.Cache;
+using Emby.TmdbDiscover.Configuration;
+using Emby.TmdbDiscover.Notifications;
 using Emby.TmdbDiscover.Tmdb;
-using Emby.TmdbDiscover.Wishlist;
+using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Net;
-using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Services;
 
 namespace Emby.TmdbDiscover.Api
@@ -14,20 +14,19 @@ namespace Emby.TmdbDiscover.Api
     [Authenticated(Roles = "admin")]
     public sealed class DiscoverAdminService : IService
     {
-        private readonly IDiscoverCache _cache;
-        private readonly IWishlistStore _wishlist;
-        private readonly ILogger _logger;
+        private readonly IHttpClient _httpClient;
 
-        public DiscoverAdminService(IDiscoverCache cache, IWishlistStore wishlist, ILogger logger)
+        public DiscoverAdminService(IHttpClient httpClient)
         {
-            _cache = cache;
-            _wishlist = wishlist;
-            _logger = logger;
+            _httpClient = httpClient;
         }
 
         public object Get(GetDiscoverStatus request)
         {
-            var meta = _cache.GetMeta();
+            var cache = Plugin.Instance.GetDiscoverCache();
+            var wishlist = Plugin.Instance.GetWishlistStore();
+            var meta = cache.GetMeta();
+
             return new DiscoverStatusDto
             {
                 PluginVersion = Plugin.Instance?.Version?.ToString() ?? "unknown",
@@ -37,16 +36,17 @@ namespace Emby.TmdbDiscover.Api
                 SeriesFetchedAtUtc = meta.SeriesFetchedAtUtc,
                 CachedMovieCount = meta.MovieCount,
                 CachedSeriesCount = meta.SeriesCount,
-                ActiveWishlistCount = _wishlist.GetActive().Count,
+                ActiveWishlistCount = wishlist.GetActive().Count,
                 LastError = meta.LastError
             };
         }
 
         public object Get(GetDiscoverWishlist request)
         {
+            var wishlist = Plugin.Instance.GetWishlistStore();
             var entries = request.ActiveOnly
-                ? _wishlist.GetActive(request.UserId)
-                : _wishlist.GetAll(request.UserId);
+                ? wishlist.GetActive(request.UserId)
+                : wishlist.GetAll(request.UserId);
 
             return entries.Select(e => new WishlistEntryDto
             {
@@ -67,8 +67,8 @@ namespace Emby.TmdbDiscover.Api
 
         public object Post(RemoveWishlistEntry request)
         {
-            _wishlist.Remove(request.UserId, request.MediaType, request.TmdbId);
-            _logger.Info("Discover: admin removed wishlist entry {0} {1} for user {2}",
+            Plugin.Instance.GetWishlistStore().Remove(request.UserId, request.MediaType, request.TmdbId);
+            Plugin.Instance.GetLogger().Info("Discover: admin removed wishlist entry {0} {1} for user {2}",
                 request.MediaType, request.TmdbId, request.UserId);
             return new { Success = true };
         }
@@ -77,8 +77,8 @@ namespace Emby.TmdbDiscover.Api
         {
             try
             {
-                await _cache.RefreshAsync(CancellationToken.None).ConfigureAwait(false);
-                var meta = _cache.GetMeta();
+                await Plugin.Instance.GetDiscoverCache().RefreshAsync(CancellationToken.None).ConfigureAwait(false);
+                var meta = Plugin.Instance.GetDiscoverCache().GetMeta();
                 return new RefreshResultDto
                 {
                     Success = true,
@@ -96,6 +96,111 @@ namespace Emby.TmdbDiscover.Api
             }
         }
 
+        public object Post(TestNotification request)
+        {
+            var opts = Plugin.Instance?.GetOptions();
+            if (opts == null)
+            {
+                return new TestNotificationResultDto
+                {
+                    EmailMessage = "Plugin not initialized",
+                    WebhookMessage = "Plugin not initialized"
+                };
+            }
+
+            // Test what the user is currently looking at. The config page posts the
+            // live form values, so pressing Test before Save still tests the typed
+            // settings instead of silently testing the last saved ones.
+            var usedUnsaved = request.SmtpHost != null || request.NotificationWebhookUrl != null;
+            if (usedUnsaved)
+            {
+                opts = new PluginOptions
+                {
+                    SmtpHost = request.SmtpHost ?? opts.SmtpHost,
+                    SmtpPort = request.SmtpPort ?? opts.SmtpPort,
+                    SmtpUseSsl = request.SmtpUseSsl ?? opts.SmtpUseSsl,
+                    SmtpUsername = request.SmtpUsername ?? opts.SmtpUsername,
+                    SmtpPassword = request.SmtpPassword ?? opts.SmtpPassword,
+                    NotificationFromEmail = request.NotificationFromEmail ?? opts.NotificationFromEmail,
+                    NotificationToEmail = request.NotificationToEmail ?? opts.NotificationToEmail,
+                    NotificationWebhookUrl = request.NotificationWebhookUrl ?? opts.NotificationWebhookUrl
+                };
+            }
+
+            var result = NotificationSender.Send(
+                _httpClient, opts,
+                "Discover: Test Notification",
+                "This is a test notification from the Discover for Emby plugin.",
+                "Discover Test",
+                "This is a test notification from the Discover for Emby plugin.",
+                null, "test");
+
+            return new TestNotificationResultDto
+            {
+                EmailSuccess = result.EmailSuccess,
+                EmailMessage = result.EmailMessage,
+                WebhookSuccess = result.WebhookSuccess,
+                WebhookMessage = result.WebhookMessage,
+                EmailConfigured = result.EmailConfigured,
+                WebhookConfigured = result.WebhookConfigured,
+                UsedUnsavedSettings = usedUnsaved
+            };
+        }
+
+        public object Get(GetDiscoverOptions request)
+        {
+            var opts = Plugin.Instance.GetOptions();
+            return new
+            {
+                opts.TmdbApiKey,
+                opts.ChannelName,
+                opts.Language,
+                opts.Region,
+                TrendingWindow = opts.TrendingWindow.ToString(),
+                opts.EnableMovies,
+                opts.MovieCount,
+                opts.EnableSeries,
+                opts.SeriesCount,
+                opts.HideLibraryItems,
+                opts.NotifyOnWishlistAdd,
+                opts.SmtpHost,
+                opts.SmtpPort,
+                opts.SmtpUseSsl,
+                opts.SmtpUsername,
+                opts.SmtpPassword,
+                opts.NotificationFromEmail,
+                opts.NotificationToEmail,
+                opts.NotificationWebhookUrl
+            };
+        }
+
+        public object Post(SaveDiscoverOptions request)
+        {
+            var opts = Plugin.Instance.GetOptions();
+            opts.TmdbApiKey = request.TmdbApiKey ?? "";
+            opts.ChannelName = request.ChannelName ?? "Discover";
+            opts.Language = request.Language ?? "en-GB";
+            opts.Region = request.Region ?? "";
+            opts.TrendingWindow = string.Equals(request.TrendingWindow, "Day", StringComparison.OrdinalIgnoreCase)
+                ? TrendingWindow.Day : TrendingWindow.Week;
+            opts.EnableMovies = request.EnableMovies;
+            opts.MovieCount = request.MovieCount;
+            opts.EnableSeries = request.EnableSeries;
+            opts.SeriesCount = request.SeriesCount;
+            opts.HideLibraryItems = request.HideLibraryItems;
+            opts.NotifyOnWishlistAdd = request.NotifyOnWishlistAdd;
+            opts.SmtpHost = request.SmtpHost ?? "";
+            opts.SmtpPort = request.SmtpPort;
+            opts.SmtpUseSsl = request.SmtpUseSsl;
+            opts.SmtpUsername = request.SmtpUsername ?? "";
+            opts.SmtpPassword = request.SmtpPassword ?? "";
+            opts.NotificationFromEmail = request.NotificationFromEmail ?? "";
+            opts.NotificationToEmail = request.NotificationToEmail ?? "";
+            opts.NotificationWebhookUrl = request.NotificationWebhookUrl ?? "";
+            Plugin.Instance.SaveOptions(opts);
+            return new { Success = true };
+        }
+
         public async Task<object> Post(TestTmdb request)
         {
             var opts = Plugin.Instance?.GetOptions();
@@ -110,8 +215,8 @@ namespace Emby.TmdbDiscover.Api
 
             try
             {
-                await _cache.RefreshAsync(CancellationToken.None).ConfigureAwait(false);
-                var meta = _cache.GetMeta();
+                await Plugin.Instance.GetDiscoverCache().RefreshAsync(CancellationToken.None).ConfigureAwait(false);
+                var meta = Plugin.Instance.GetDiscoverCache().GetMeta();
 
                 if (!string.IsNullOrEmpty(meta.LastError))
                 {

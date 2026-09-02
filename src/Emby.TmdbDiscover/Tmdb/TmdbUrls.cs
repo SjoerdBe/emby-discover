@@ -6,11 +6,16 @@ namespace Emby.TmdbDiscover.Tmdb
         public const string PosterBase = "https://image.tmdb.org/t/p/w500";
         public const string BackdropBase = "https://image.tmdb.org/t/p/w1280";
 
-        public static string TrendingMovies(string window, int page, string language, string apiKey) =>
-            $"{BaseApi}/trending/movie/{window}?api_key={apiKey}&language={language}&page={page}";
+        public static string TrendingMovies(string window, int page, string language, string apiKey, string region = null) =>
+            $"{BaseApi}/trending/movie/{window}?api_key={apiKey}&language={language}&page={page}"
+            + (string.IsNullOrWhiteSpace(region) ? "" : $"&region={region}");
 
-        public static string TrendingSeries(string window, int page, string language, string apiKey) =>
-            $"{BaseApi}/trending/tv/{window}?api_key={apiKey}&language={language}&page={page}";
+        public static string TrendingSeries(string window, int page, string language, string apiKey, string region = null) =>
+            $"{BaseApi}/trending/tv/{window}?api_key={apiKey}&language={language}&page={page}"
+            + (string.IsNullOrWhiteSpace(region) ? "" : $"&region={region}");
+
+        public static string Videos(string mediaType, int tmdbId, string language, string apiKey) =>
+            $"{BaseApi}/{mediaType}/{tmdbId}/videos?api_key={apiKey}&language={language}";
 
         public static string Poster(string path) =>
             string.IsNullOrEmpty(path) ? null : PosterBase + path;

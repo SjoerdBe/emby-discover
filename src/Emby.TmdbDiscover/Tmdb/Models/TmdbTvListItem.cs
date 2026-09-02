@@ -2,17 +2,17 @@ namespace Emby.TmdbDiscover.Tmdb.Models
 {
     public sealed class TmdbTvListItem
     {
-        public bool Adult { get; set; }
-        public string BackdropPath { get; set; }
-        public string FirstAirDate { get; set; }
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string OriginalLanguage { get; set; }
-        public string OriginalName { get; set; }
-        public string Overview { get; set; }
-        public double Popularity { get; set; }
-        public string PosterPath { get; set; }
-        public double VoteAverage { get; set; }
-        public int VoteCount { get; set; }
+        public bool adult { get; set; }
+        public string backdrop_path { get; set; }
+        public string first_air_date { get; set; }
+        public int id { get; set; }
+        public string name { get; set; }
+        public string original_language { get; set; }
+        public string original_name { get; set; }
+        public string overview { get; set; }
+        public double popularity { get; set; }
+        public string poster_path { get; set; }
+        public double vote_average { get; set; }
+        public int vote_count { get; set; }
     }
 }

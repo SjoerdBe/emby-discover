@@ -8,21 +8,15 @@ using MediaBrowser.Controller.Channels;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Channels;
 using MediaBrowser.Model.Drawing;
+using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
-using MediaBrowser.Model.Logging;
+using MediaBrowser.Model.MediaInfo;
 
 namespace Emby.TmdbDiscover.Channels
 {
-    public sealed class TmdbDiscoverChannel : IChannel
+    public sealed class TmdbDiscoverChannel : IChannel, IRequiresMediaInfoCallback
     {
-        private readonly ILogger _logger;
-        private readonly IDiscoverCache _cache;
-
-        public TmdbDiscoverChannel(IDiscoverCache cache, ILogger logger)
-        {
-            _cache = cache;
-            _logger = logger;
-        }
+        private IDiscoverCache Cache => Plugin.Instance.GetDiscoverCache();
 
         public string Name
         {
@@ -36,7 +30,7 @@ namespace Emby.TmdbDiscover.Channels
         }
 
         public string Description => "Browse trending movies and series from TMDB";
-        public string DataVersion => "4";
+        public string DataVersion => "8";
         public string HomePageUrl => "https://www.themoviedb.org";
         public ChannelParentalRating ParentalRating => ChannelParentalRating.GeneralAudience;
 
@@ -58,6 +52,70 @@ namespace Emby.TmdbDiscover.Channels
         }
 
         public bool IsEnabledFor(string userId) => true;
+
+        public async Task<IEnumerable<MediaSourceInfo>> GetChannelItemMediaInfo(
+            string id, CancellationToken cancellationToken)
+        {
+            if (!ChannelIds.TryParse(id, out var mediaType, out var tmdbId, out _))
+                return Enumerable.Empty<MediaSourceInfo>();
+
+            var itemType = mediaType == DiscoverMediaType.Movie ? "Movie" : "Series";
+            var libraryItem = Plugin.Instance.FindLibraryItem(itemType, tmdbId);
+
+            if (libraryItem != null && !string.IsNullOrEmpty(libraryItem.Path))
+            {
+                Plugin.Instance.GetLogger().Info(
+                    "Discover: playing library item for {0}/{1}: {2}", itemType, tmdbId, libraryItem.Path);
+
+                return new List<MediaSourceInfo>
+                {
+                    new MediaSourceInfo
+                    {
+                        Path = libraryItem.Path,
+                        Protocol = MediaProtocol.File,
+                        Id = libraryItem.InternalId.ToString(),
+                        Name = libraryItem.Name,
+                        SupportsDirectPlay = true,
+                        SupportsDirectStream = true,
+                        SupportsTranscoding = true
+                    }
+                };
+            }
+
+            var opts = Plugin.Instance?.GetOptions();
+            if (opts == null || string.IsNullOrWhiteSpace(opts.TmdbApiKey))
+                return Enumerable.Empty<MediaSourceInfo>();
+
+            var tmdbMediaType = mediaType == DiscoverMediaType.Movie ? "movie" : "tv";
+            var client = Plugin.Instance.GetTmdbClient();
+            var youtubeKey = await client.GetTrailerYouTubeKeyAsync(
+                tmdbMediaType, tmdbId, opts.Language, cancellationToken).ConfigureAwait(false);
+
+            if (string.IsNullOrEmpty(youtubeKey))
+            {
+                Plugin.Instance.GetLogger().Info(
+                    "Discover: no trailer found for {0}/{1}", tmdbMediaType, tmdbId);
+                return Enumerable.Empty<MediaSourceInfo>();
+            }
+
+            Plugin.Instance.GetLogger().Info(
+                "Discover: returning trailer for {0}/{1}: {2}", tmdbMediaType, tmdbId, youtubeKey);
+
+            return new List<MediaSourceInfo>
+            {
+                new MediaSourceInfo
+                {
+                    Path = "https://www.youtube.com/watch?v=" + youtubeKey,
+                    Protocol = MediaProtocol.Http,
+                    Id = youtubeKey,
+                    Name = "Trailer",
+                    IsRemote = true,
+                    SupportsDirectPlay = true,
+                    SupportsDirectStream = false,
+                    SupportsTranscoding = false
+                }
+            };
+        }
 
         public async Task<ChannelItemResult> GetChannelItems(
             InternalChannelItemQuery query,
@@ -131,34 +189,48 @@ namespace Emby.TmdbDiscover.Channels
         private async Task<ChannelItemResult> GetTrendingMovies(
             InternalChannelItemQuery query, CancellationToken cancellationToken)
         {
-            var movies = _cache.GetMovies();
+            var cache = Cache;
+            var movies = cache.GetMovies();
             if (movies.Count == 0)
             {
-                await _cache.RefreshAsync(cancellationToken).ConfigureAwait(false);
-                movies = _cache.GetMovies();
+                await cache.RefreshAsync(cancellationToken).ConfigureAwait(false);
+                movies = cache.GetMovies();
             }
 
-            var items = movies.Select(ChannelItemFactory.CreateMovie).ToList();
+            var libraryIds = Plugin.Instance.GetLibraryTmdbIds("Movie");
+            var opts = Plugin.Instance?.GetOptions();
+            var hideLibrary = opts != null && opts.HideLibraryItems;
+            var items = movies
+                .Where(m => !hideLibrary || !libraryIds.Contains(m.id))
+                .Select(m => ChannelItemFactory.CreateMovie(m, libraryIds.Contains(m.id)))
+                .ToList();
             return ApplyPaging(items, query);
         }
 
         private async Task<ChannelItemResult> GetTrendingSeries(
             InternalChannelItemQuery query, CancellationToken cancellationToken)
         {
-            var series = _cache.GetSeries();
+            var cache = Cache;
+            var series = cache.GetSeries();
             if (series.Count == 0)
             {
-                await _cache.RefreshAsync(cancellationToken).ConfigureAwait(false);
-                series = _cache.GetSeries();
+                await cache.RefreshAsync(cancellationToken).ConfigureAwait(false);
+                series = cache.GetSeries();
             }
 
-            var items = series.Select(ChannelItemFactory.CreateSeriesFolder).ToList();
+            var libraryIds = Plugin.Instance.GetLibraryTmdbIds("Series");
+            var opts = Plugin.Instance?.GetOptions();
+            var hideLibrary = opts != null && opts.HideLibraryItems;
+            var items = series
+                .Where(s => !hideLibrary || !libraryIds.Contains(s.id))
+                .Select(s => ChannelItemFactory.CreateSeriesFolder(s, libraryIds.Contains(s.id)))
+                .ToList();
             return ApplyPaging(items, query);
         }
 
         private ChannelItemResult BuildSeriesChildren(int tmdbId)
         {
-            var show = _cache.FindSeries(tmdbId);
+            var show = Cache.FindSeries(tmdbId);
             var placeholder = show != null
                 ? ChannelItemFactory.CreatePlaceholderEpisode(show)
                 : ChannelItemFactory.CreatePlaceholderEpisode(tmdbId, "Unknown Series");
@@ -189,11 +261,23 @@ namespace Emby.TmdbDiscover.Channels
 
         public IEnumerable<ImageType> GetSupportedChannelImages()
         {
-            return new List<ImageType> { ImageType.Primary };
+            return new List<ImageType> { ImageType.Primary, ImageType.Thumb };
         }
 
         public Task<DynamicImageResponse> GetChannelImage(ImageType type, CancellationToken cancellationToken)
         {
+            var stream = GetType().Assembly.GetManifestResourceStream(
+                "Emby.TmdbDiscover.Channels.Images.channel-icon.png");
+
+            if (stream != null)
+            {
+                return Task.FromResult(new DynamicImageResponse
+                {
+                    Format = ImageFormat.Png,
+                    Stream = stream
+                });
+            }
+
             return Task.FromResult(new DynamicImageResponse());
         }
     }

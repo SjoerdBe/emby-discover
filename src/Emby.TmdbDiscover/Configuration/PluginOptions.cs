@@ -1,45 +1,38 @@
-using System.ComponentModel;
-using Emby.Web.GenericEdit;
+using MediaBrowser.Model.Plugins;
 
 namespace Emby.TmdbDiscover.Configuration
 {
-    public sealed class PluginOptions : EditableOptionsBase
+    public sealed class PluginOptions : BasePluginConfiguration
     {
-        public override string EditorTitle => "Discover for Emby";
+        // --- TMDB ---
 
-        [DisplayName("TMDB API Key")]
-        [Description("Your TMDB v3 API key. Never written to logs.")]
         public string TmdbApiKey { get; set; } = "";
-
-        [DisplayName("Channel Name")]
-        [Description("Display name for the Discover channel.")]
-        public string ChannelName { get; set; } = "Discover";
-
-        [DisplayName("Metadata Language")]
-        [Description("Language code for TMDB metadata (e.g. en-GB, nl-NL).")]
         public string Language { get; set; } = "en-GB";
-
-        [DisplayName("Trending Window")]
-        [Description("Day or Week trending window.")]
+        public string Region { get; set; } = "";
         public TrendingWindow TrendingWindow { get; set; } = TrendingWindow.Week;
 
-        [DisplayName("Enable Trending Movies")]
+        // --- Channel ---
+
+        public string ChannelName { get; set; } = "Discover";
         public bool EnableMovies { get; set; } = true;
-
-        [DisplayName("Movie Count")]
-        [Description("Number of trending movies to show (20-100, step 20).")]
         public int MovieCount { get; set; } = 60;
-
-        [DisplayName("Enable Trending Series")]
         public bool EnableSeries { get; set; } = true;
-
-        [DisplayName("Series Count")]
-        [Description("Number of trending series to show (20-100, step 20).")]
         public int SeriesCount { get; set; } = 60;
+        public bool HideLibraryItems { get; set; } = false;
 
-        [DisplayName("Use Placeholder Playback")]
-        [Description("Show a placeholder video for items not in your library.")]
-        public bool EnablePlaceholderPlayback { get; set; } = true;
+        // --- Notifications ---
+
+        public bool NotifyOnWishlistAdd { get; set; } = true;
+        public string SmtpHost { get; set; } = "";
+        public int SmtpPort { get; set; } = 587;
+        public bool SmtpUseSsl { get; set; } = true;
+        public string SmtpUsername { get; set; } = "";
+        public string SmtpPassword { get; set; } = "";
+        public string NotificationFromEmail { get; set; } = "";
+        public string NotificationToEmail { get; set; } = "";
+        public string NotificationWebhookUrl { get; set; } = "";
+
+        // --- Computed ---
 
         public int ClampedMovieCount => ClampCount(MovieCount);
         public int ClampedSeriesCount => ClampCount(SeriesCount);

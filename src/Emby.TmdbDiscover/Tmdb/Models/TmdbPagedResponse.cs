@@ -4,9 +4,9 @@ namespace Emby.TmdbDiscover.Tmdb.Models
 {
     public sealed class TmdbPagedResponse<T>
     {
-        public int Page { get; set; }
-        public List<T> Results { get; set; } = new List<T>();
-        public int TotalPages { get; set; }
-        public int TotalResults { get; set; }
+        public int page { get; set; }
+        public List<T> results { get; set; } = new List<T>();
+        public int total_pages { get; set; }
+        public int total_results { get; set; }
     }
 }

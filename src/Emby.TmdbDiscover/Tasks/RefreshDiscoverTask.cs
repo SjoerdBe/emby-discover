@@ -2,23 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Emby.TmdbDiscover.Cache;
-using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Tasks;
 
 namespace Emby.TmdbDiscover.Tasks
 {
     public sealed class RefreshDiscoverTask : IScheduledTask
     {
-        private readonly IDiscoverCache _cache;
-        private readonly ILogger _logger;
-
-        public RefreshDiscoverTask(IDiscoverCache cache, ILogger logger)
-        {
-            _cache = cache;
-            _logger = logger;
-        }
-
         public string Name => "Refresh Discover from TMDB";
         public string Description => "Fetches latest trending movies and series from TMDB";
         public string Category => "Discover";
@@ -26,13 +15,17 @@ namespace Emby.TmdbDiscover.Tasks
 
         public async Task Execute(CancellationToken cancellationToken, IProgress<double> progress)
         {
-            _logger.Info("Discover: scheduled refresh starting");
+            var logger = Plugin.Instance.GetLogger();
+            logger.Info("Discover: scheduled refresh starting");
             progress.Report(0);
 
-            await _cache.RefreshAsync(cancellationToken).ConfigureAwait(false);
+            await Plugin.Instance.GetDiscoverCache().RefreshAsync(cancellationToken).ConfigureAwait(false);
+            progress.Report(80);
+
+            await Plugin.Instance.UpdateChannelItemTagsAsync(cancellationToken).ConfigureAwait(false);
 
             progress.Report(100);
-            _logger.Info("Discover: scheduled refresh complete");
+            logger.Info("Discover: scheduled refresh complete");
         }
 
         public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()

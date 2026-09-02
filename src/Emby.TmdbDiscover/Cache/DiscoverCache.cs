@@ -69,12 +69,12 @@ namespace Emby.TmdbDiscover.Cache
                     {
                         var movies = await _tmdb.GetTrendingMoviesAsync(
                             opts.ClampedMovieCount, opts.TrendingWindowValue,
-                            opts.Language, cancellationToken).ConfigureAwait(false);
+                            opts.Language, opts.Region, cancellationToken).ConfigureAwait(false);
 
                         if (movies != null && movies.Count > 0)
                         {
                             _movies = movies;
-                            _movieIndex = movies.ToDictionary(m => m.Id);
+                            _movieIndex = movies.ToDictionary(m => m.id);
                             newMeta.MoviesFetchedAtUtc = DateTimeOffset.UtcNow;
                             newMeta.MovieCount = movies.Count;
                             PersistCache("trending-movies.json", movies);
@@ -105,12 +105,12 @@ namespace Emby.TmdbDiscover.Cache
                     {
                         var series = await _tmdb.GetTrendingSeriesAsync(
                             opts.ClampedSeriesCount, opts.TrendingWindowValue,
-                            opts.Language, cancellationToken).ConfigureAwait(false);
+                            opts.Language, opts.Region, cancellationToken).ConfigureAwait(false);
 
                         if (series != null && series.Count > 0)
                         {
                             _series = series;
-                            _seriesIndex = series.ToDictionary(s => s.Id);
+                            _seriesIndex = series.ToDictionary(s => s.id);
                             newMeta.SeriesFetchedAtUtc = DateTimeOffset.UtcNow;
                             newMeta.SeriesCount = series.Count;
                             PersistCache("trending-series.json", series);
@@ -160,7 +160,7 @@ namespace Emby.TmdbDiscover.Cache
                         if (movies != null && movies.Count > 0)
                         {
                             _movies = movies;
-                            _movieIndex = movies.ToDictionary(m => m.Id);
+                            _movieIndex = movies.ToDictionary(m => m.id);
                             _logger.Info("Discover: loaded {0} movies from persistent cache", movies.Count);
                         }
                     }
@@ -175,7 +175,7 @@ namespace Emby.TmdbDiscover.Cache
                         if (series != null && series.Count > 0)
                         {
                             _series = series;
-                            _seriesIndex = series.ToDictionary(s => s.Id);
+                            _seriesIndex = series.ToDictionary(s => s.id);
                             _logger.Info("Discover: loaded {0} series from persistent cache", series.Count);
                         }
                     }

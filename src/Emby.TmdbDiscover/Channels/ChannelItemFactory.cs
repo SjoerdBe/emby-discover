@@ -10,51 +10,69 @@ namespace Emby.TmdbDiscover.Channels
 {
     public static class ChannelItemFactory
     {
-        public static ChannelItemInfo CreateMovie(TmdbMovieListItem movie)
+        public static ChannelItemInfo CreateMovie(TmdbMovieListItem movie, bool inLibrary = false)
         {
+            var title = movie.title ?? movie.original_title ?? "Unknown";
+            var overview = movie.overview ?? "";
+
+            if (!inLibrary)
+            {
+                overview = "Not in your library. Press Play to watch the trailer, or Favorite to add it to the wishlist.\n\n" + overview;
+            }
+
             var item = new ChannelItemInfo
             {
-                Id = ChannelIds.Movie(movie.Id),
+                Id = ChannelIds.Movie(movie.id),
                 Type = ChannelItemType.Media,
                 MediaType = ChannelMediaType.Video,
                 ContentType = ChannelMediaContentType.Movie,
-                Name = movie.Title ?? movie.OriginalTitle ?? "Unknown",
-                OriginalTitle = movie.OriginalTitle,
-                Overview = movie.Overview,
-                ImageUrl = TmdbUrls.Poster(movie.PosterPath),
-                CommunityRating = movie.VoteAverage > 0 ? (float?)movie.VoteAverage : null,
+                Name = title,
+                OriginalTitle = movie.original_title,
+                Overview = overview,
+                ImageUrl = TmdbUrls.Poster(movie.poster_path),
+                CommunityRating = movie.vote_average > 0 ? (float?)movie.vote_average : null,
+                ForceUpdate = true,
                 ProviderIds = new ProviderIdDictionary
                 {
-                    ["Tmdb"] = movie.Id.ToString(CultureInfo.InvariantCulture)
+                    ["Tmdb"] = movie.id.ToString(CultureInfo.InvariantCulture)
                 }
             };
 
-            ParseDate(movie.ReleaseDate, out var date, out var year);
+            ParseDate(movie.release_date, out var date, out var year);
             item.PremiereDate = date;
             item.ProductionYear = year;
 
             return item;
         }
 
-        public static ChannelItemInfo CreateSeriesFolder(TmdbTvListItem show)
+        public static ChannelItemInfo CreateSeriesFolder(TmdbTvListItem show, bool inLibrary = false)
         {
+            var title = show.name ?? show.original_name ?? "Unknown";
+            var overview = show.overview ?? "";
+
+            if (!inLibrary)
+            {
+                overview = "Not in your library. Favorite to add it to the wishlist.\n\n" + overview;
+            }
+
             var item = new ChannelItemInfo
             {
-                Id = ChannelIds.Series(show.Id),
+                Id = ChannelIds.Series(show.id),
                 Type = ChannelItemType.Folder,
                 FolderType = ChannelFolderType.Series,
-                Name = show.Name ?? show.OriginalName ?? "Unknown",
-                OriginalTitle = show.OriginalName,
-                Overview = show.Overview,
-                ImageUrl = TmdbUrls.Poster(show.PosterPath),
-                CommunityRating = show.VoteAverage > 0 ? (float?)show.VoteAverage : null,
+                Name = title,
+                OriginalTitle = show.original_name,
+                Overview = overview,
+                ImageUrl = TmdbUrls.Poster(show.poster_path),
+                CommunityRating = show.vote_average > 0 ? (float?)show.vote_average : null,
+                ForceUpdate = true,
                 ProviderIds = new ProviderIdDictionary
                 {
-                    ["Tmdb"] = show.Id.ToString(CultureInfo.InvariantCulture)
+                    ["Tmdb"] = show.id.ToString(CultureInfo.InvariantCulture)
                 }
             };
 
-            ParseDate(show.FirstAirDate, out var date, out var year);
+            ParseDate(show.first_air_date, out var date, out var year);
             item.PremiereDate = date;
             item.ProductionYear = year;
 
@@ -65,12 +83,12 @@ namespace Emby.TmdbDiscover.Channels
         {
             return new ChannelItemInfo
             {
-                Id = ChannelIds.SeriesPlaceholder(show.Id),
+                Id = ChannelIds.SeriesPlaceholder(show.id),
                 Type = ChannelItemType.Media,
                 MediaType = ChannelMediaType.Video,
                 ContentType = ChannelMediaContentType.Episode,
                 Name = "Not in library yet",
-                SeriesName = show.Name,
+                SeriesName = show.name,
                 IndexNumber = 0,
                 ParentIndexNumber = 0,
                 Overview = "This title is shown for discovery only. Use Trailer to preview it, or Favorite it to add it to the wishlist."
