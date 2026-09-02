@@ -1,0 +1,83 @@
+name: Release
+
+# Publishes a GitHub Release with the built plugin DLL attached, triggered by
+# pushing a version tag:
+#
+#     git tag v0.1.0
+#     git push origin v0.1.0
+#
+# The tag version must match <Version> in the csproj. Emby compares assembly
+# versions to decide whether an update is available, and the configuration
+# page's cache-busting slug is keyed on it, so a mismatch ships a build that
+# reports the wrong version. The job fails fast if they disagree.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Allows a manual run from the Actions tab for testing, which builds and
+  # uploads an artifact but does not create a release.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Check the tag matches the project version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          proj=$(grep -oPm1 '(?<=<Version>)[^<]+' src/Emby.TmdbDiscover/Emby.TmdbDiscover.csproj)
+          echo "tag version:     $tag"
+          echo "project version: $proj"
+          if [ "$tag" != "$proj" ]; then
+            echo "::error::Tag v$tag does not match <Version>$proj</Version> in the csproj. Bump the csproj and re-tag."
+            exit 1
+          fi
+
+      - name: Build
+        run: dotnet build src/Emby.TmdbDiscover/Emby.TmdbDiscover.csproj -c Release
+
+      - name: Collect the DLL
+        run: |
+          set -euo pipefail
+          dll=src/Emby.TmdbDiscover/bin/Release/netstandard2.0/Emby.TmdbDiscover.dll
+          test -f "$dll"
+          mkdir -p dist
+          cp "$dll" dist/
+          ls -l dist/
+
+      # Useful for a manual (workflow_dispatch) run, and a convenient record of
+      # exactly what a release contained.
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Emby.TmdbDiscover
+          path: dist/Emby.TmdbDiscover.dll
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          # gh is preinstalled on GitHub runners; using it avoids depending on a
+          # third-party action for something that touches release permissions.
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            dist/Emby.TmdbDiscover.dll \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --notes "Download \`Emby.TmdbDiscover.dll\` below, copy it into your Emby Server \`plugins\` folder and restart Emby. See the [README](https://github.com/${GITHUB_REPOSITORY}#installation) for per-platform paths and setup."
