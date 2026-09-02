@@ -2,7 +2,7 @@
 
 An Emby Server plugin that surfaces [TMDB](https://www.themoviedb.org) trending
 movies and series as a native Emby channel, so you can browse what's popular,
-watch the trailer, and mark what you'd like added — all without leaving Emby.
+watch the trailer, and mark what you'd like added, all without leaving Emby.
 
 ## What it does
 
@@ -21,7 +21,7 @@ watch the trailer, and mark what you'd like added — all without leaving Emby.
 ## Requirements
 
 - **Emby Server 4.9 or newer** (built against the 4.9.1 server SDK).
-- A **TMDB API key** (v3 auth). Free — register at
+- A **TMDB API key** (v3 auth). Free; register at
   [themoviedb.org](https://www.themoviedb.org/settings/api). The key is stored in
   the plugin's configuration and is never written to the Emby log.
 
@@ -39,7 +39,7 @@ watch the trailer, and mark what you'd like added — all without leaving Emby.
    | Docker | `<your config volume>/plugins` |
 
    If none of those match, the exact location is your Emby data directory with
-   `/plugins` appended — the Emby dashboard reports that path under server info.
+   `/plugins` appended. The Emby dashboard reports that path under server info.
 
 3. Restart Emby Server.
 4. Open **Dashboard → Plugins → Discover for Emby** and enter your TMDB API key,
@@ -54,15 +54,15 @@ On Linux and Synology, make sure the file is readable by the Emby user, e.g.
 
 All settings live on the plugin's own configuration page.
 
-**TMDB** — API key, metadata language (e.g. `en-GB`, `nl-NL`), an optional
+**TMDB**: API key, metadata language (e.g. `en-GB`, `nl-NL`), an optional
 region to bias trending results (ISO 3166-1, e.g. `NL`), and whether to use the
 day or week trending window.
 
-**Channel** — the channel's display name, whether to include trending movies
+**Channel**: the channel's display name, whether to include trending movies
 and/or series, how many of each to show (20–100), and optionally hide titles you
 already have in your library.
 
-**Notifications** — whether to notify when a user favourites a Discover item,
+**Notifications**: whether to notify when a user favourites a Discover item,
 plus email and webhook delivery settings.
 
 The page also has three actions: **Save Settings**, **Test Notification** (which
@@ -104,14 +104,14 @@ install is needed to compile.
 ## Contributing
 
 Bug reports and pull requests are welcome. Fork the repo, make your change on a
-branch, and open a pull request — you don't need write access to this repo.
+branch, and open a pull request. You don't need write access to this repo.
 
 If you're reporting a problem, the Emby server log is the most useful thing to
 include; the plugin logs under the `TmdbDiscover` category.
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
 Movie and series metadata comes from [TMDB](https://www.themoviedb.org). This
 plugin is not endorsed or certified by TMDB.
