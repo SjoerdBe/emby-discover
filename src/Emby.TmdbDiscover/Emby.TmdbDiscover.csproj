@@ -10,9 +10,9 @@
          decide whether a catalog release is an update, so this must be real and
          must be bumped on every release. It also keys the configuration page's
          cache-busting slug (see DiscoverConfigPage.Name). -->
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.1.1</Version>
+    <AssemblyVersion>0.1.1.0</AssemblyVersion>
+    <FileVersion>0.1.1.0</FileVersion>
     <Product>Discover for Emby</Product>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
   </PropertyGroup>
