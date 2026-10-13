@@ -289,11 +289,25 @@ namespace Emby.TmdbDiscover
                     {
                         new KeyValuePair<string, string>("Tmdb", tmdbId.ToString(CultureInfo.InvariantCulture))
                     },
-                    Limit = 1
+
+                    // Our own channel items are stored with the same item type and the
+                    // same Tmdb provider id as the real library entry (see
+                    // ChannelItemFactory.CreateMovie), but they have no file behind them.
+                    // Once a title is in the library both rows match, so without this
+                    // filter the lookup can return the channel's own pathless item and
+                    // playback silently falls back to the trailer for a film the user
+                    // actually owns. GetLibraryTmdbIds filters the same way.
+                    HasPath = true,
+
+                    // Belt and braces: take a few and pick one that really has a file,
+                    // rather than trusting whichever row happens to come back first.
+                    Limit = 5
                 };
 
                 var items = libraryManager.GetItemList(query);
-                return items?.FirstOrDefault();
+                if (items == null) return null;
+
+                return items.FirstOrDefault(i => !string.IsNullOrEmpty(i.Path));
             }
             catch (Exception ex)
             {
